@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mid Canyon - Generative Sci-Fi Trench Run</title>
+    
+    <!-- SEO & Metadata -->
+    <meta name="description" content="Experience Mid Canyon, a generative sci-fi trench run simulation. Navigate endless procedural terrain in this WebGL flight sim.">
+    <meta name="keywords" content="mid canyon, generative, trench run, webgl, three.js, flight simulator, sci-fi, arcade, endless runner, procedural generation">
+    <meta name="author" content="Chris Pirillo">
+    <link rel="canonical" href="https://pirillo.com/arcade/mid-canyon.html">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://pirillo.com/arcade/mid-canyon.html">
+    <meta property="og:title" content="Mid Canyon">
+    <meta property="og:description" content="A generative sci-fi trench run simulation. Navigate endless procedural terrain in this WebGL flight experience.">
+    <meta property="og:image" content="https://pirillo.com/arcade/images/mid-canyon.png">
+    <meta property="og:site_name" content="Chris Pirillo's Arcade">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@ChrisPirillo">
+    <meta name="twitter:creator" content="@ChrisPirillo">
+    <meta name="twitter:url" content="https://pirillo.com/arcade/mid-canyon.html">
+    <meta name="twitter:title" content="Mid Canyon">
+    <meta name="twitter:description" content="A generative sci-fi trench run simulation. Navigate endless procedural terrain in this WebGL flight experience.">
+    <meta name="twitter:image" content="https://pirillo.com/arcade/images/mid-canyon.png">
+
+    <!-- Performance Hints -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Stylesheets -->
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1CQ4D3VQ3L"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-1CQ4D3VQ3L');
+    </script>
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Mid Canyon",
+      "url": "https://pirillo.com/arcade/mid-canyon.html",
+      "description": "A generative sci-fi trench run simulation using WebGL.",
+      "genre": "Simulation",
+      "author": {
+        "@type": "Person",
+        "name": "Chris Pirillo",
+        "url": "https://pirillo.com"
+      },
+      "image": "https://pirillo.com/arcade/images/mid-canyon.png",
+      "applicationCategory": "Game",
+      "operatingSystem": "Any"
+    }
+    </script>
+
+    <style>
+        :root {
+            --bg-color: #050505;
+            --panel-bg: rgba(10, 15, 20, 0.9);
+            --panel-border: 1px solid rgba(100, 200, 255, 0.15);
+            --text-primary: #e0f0ff;
+            --text-secondary: #8090a0;
+            --accent: #00ccff;
+            --accent-glow: 0 0 10px rgba(0, 204, 255, 0.3);
+            --font-main: 'Rajdhani', sans-serif;
+            --font-mono: 'Roboto Mono', monospace;
+        }
+
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: var(--bg-color); 
+            font-family: var(--font-main);
+            color: var(--text-primary);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        canvas { display: block; outline: none; }
+
+        /* --- FADE OVERLAY --- */
+        #transition-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            opacity: 1; /* Start visible to hide load */
+            pointer-events: none;
+            transition: opacity 0.8s ease-in-out;
+            z-index: 50;
+        }
+        #transition-overlay.active { opacity: 1; pointer-events: auto; }
+        #transition-overlay.hidden { opacity: 0; }
+
+        /* --- HAMBURGER MENU --- */
+        #menu-btn {
+            position: absolute;
+            top: 24px; right: 24px; z-index: 100;
+            width: 44px; height: 44px;
+            background: rgba(0,0,0,0.4);
+            border: var(--panel-border);
+            border-radius: 4px; 
+            cursor: pointer;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(8px);
+        }
+        #menu-btn:hover { border-color: var(--accent); box-shadow: var(--accent-glow); }
+        #menu-btn span {
+            display: block; width: 20px; height: 2px;
+            background-color: var(--accent);
+            transition: 0.3s;
+        }
+        #menu-btn.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+        #menu-btn.open span:nth-child(2) { opacity: 0; }
+        #menu-btn.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+        /* --- SETTINGS PANEL --- */
+        #settings-panel {
+            position: absolute; top: 0; right: 0;
+            width: 360px; height: 100vh;
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-left: var(--panel-border);
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);
+            z-index: 90;
+            display: flex; flex-direction: column;
+            box-shadow: -20px 0 50px rgba(0,0,0,0.8);
+        }
+        #settings-panel.open { transform: translateX(0); }
+
+        .panel-header {
+            height: 92px; padding: 0 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 1.2rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 700;
+            display: flex; align-items: center; 
+            background: linear-gradient(90deg, rgba(0,204,255,0.05), transparent);
+            box-sizing: border-box;
+        }
+        .panel-header span { flex-grow: 1; padding-top: 24px; }
+
+        .panel-content { flex: 1; overflow-y: auto; padding: 24px; }
+        .panel-content::-webkit-scrollbar { width: 4px; }
+        .panel-content::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        .panel-content::-webkit-scrollbar-thumb { background: var(--accent); }
+
+        .control-group { margin-bottom: 32px; }
+        .group-title {
+            font-size: 0.75rem; color: var(--text-secondary);
+            margin-bottom: 16px; text-transform: uppercase;
+            letter-spacing: 1.5px; font-weight: 600;
+            border-left: 2px solid var(--accent); padding-left: 10px;
+        }
+
+        .control-item { margin-bottom: 16px; }
+        .control-header {
+            display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 6px;
+        }
+        .control-header label { font-size: 0.9rem; font-weight: 400; color: var(--text-primary); }
+        .value-display { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent); }
+
+        input[type="range"] {
+            -webkit-appearance: none; width: 100%; height: 4px;
+            background: rgba(255,255,255,0.1); border-radius: 2px;
+            outline: none; cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 14px; height: 14px;
+            background: var(--accent); border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0, 204, 255, 0.5);
+            cursor: pointer; transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+        input[type="color"] {
+            -webkit-appearance: none; border: none;
+            width: 100%; height: 24px; cursor: pointer;
+            background: none; border-radius: 2px;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: 1px solid rgba(255,255,255,0.2); border-radius: 2px; }
+
+        .checkbox-wrapper { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+        input[type="checkbox"] {
+            appearance: none; width: 16px; height: 16px;
+            border: 1px solid var(--accent); background: transparent;
+            cursor: pointer;
+        }
+        input[type="checkbox"]:checked { background: var(--accent); }
+
+        .button-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+            padding: 24px; border-top: 1px solid rgba(255,255,255,0.05);
+            background: rgba(0,0,0,0.2);
+        }
+        .full-width { grid-column: span 2; }
+        
+        button {
+            background: transparent; border: 1px solid rgba(255,255,255,0.15);
+            color: var(--text-secondary); padding: 14px;
+            font-family: var(--font-main); font-weight: 600;
+            text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px;
+            cursor: pointer; transition: all 0.2s; border-radius: 2px;
+        }
+        button:hover { border-color: var(--accent); color: var(--accent); background: rgba(0, 204, 255, 0.05); }
+        button.action-primary {
+            background: var(--accent); border-color: var(--accent);
+            color: #000; box-shadow: 0 0 15px rgba(0, 204, 255, 0.4);
+        }
+        button.action-primary:hover { background: #33d6ff; box-shadow: 0 0 20px rgba(0, 204, 255, 0.6); }
+    </style>
+</head>
+<body>
+
+    <div id="transition-overlay"></div>
+
+    <div id="menu-btn" role="button" aria-label="Toggle Settings" tabindex="0">
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
+
+    <aside id="settings-panel">
+        <div class="panel-header">
+            <span>System Config</span>
+        </div>
+        <div class="panel-content" id="controls-container"></div>
+        <div class="button-grid">
+            <button onclick="app.resetDefaults()">Reset Default</button>
+            <button onclick="app.triggerRandomize()" class="action-primary">Randomize</button>
+            <button onclick="app.exportWallpaper()" class="full-width">Capture 4K Frame</button>
+        </div>
+    </aside>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <script>
+        const SimplexNoise = (function() {
+            var F2 = 0.5 * (Math.sqrt(3.0) - 1.0);
+            var G2 = (3.0 - Math.sqrt(3.0)) / 6.0;
+            var P = new Uint8Array(256);
+            for (var i = 0; i < 256; i++) P[i] = i;
+            for (var i = 0; i < 256; i++) {
+                var r = i + ~~(Math.random() * (256 - i));
+                var t = P[i]; P[i] = P[r]; P[r] = t;
+            }
+            var Perm = new Uint8Array(512);
+            var Grad = new Int8Array([1,1,0, -1,1,0, 1,-1,0, -1,-1,0, 1,0,1, -1,0,1, 1,0,-1, -1,0,-1, 0,1,1, 0,-1,1, 0,1,-1, 0,-1,-1]);
+            for (var i = 0; i < 512; i++) Perm[i] = P[i & 255];
+            return function() {
+                this.noise2D = function(xin, yin) {
+                    var n0, n1, n2;
+                    var s = (xin + yin) * F2; 
+                    var i = Math.floor(xin + s);
+                    var j = Math.floor(yin + s);
+                    var t = (i + j) * G2;
+                    var X0 = i - t; 
+                    var Y0 = j - t;
+                    var x0 = xin - X0; 
+                    var y0 = yin - Y0;
+                    var i1, j1; 
+                    if (x0 > y0) { i1 = 1; j1 = 0; } else { i1 = 0; j1 = 1; }
+                    var x1 = x0 - i1 + G2; 
+                    var y1 = y0 - j1 + G2;
+                    var x2 = x0 - 1.0 + 2.0 * G2; 
+                    var y2 = y0 - 1.0 + 2.0 * G2;
+                    var ii = i & 255; 
+                    var jj = j & 255;
+                    var t0 = 0.5 - x0 * x0 - y0 * y0;
+                    if (t0 < 0) n0 = 0.0; else { t0 *= t0; var gi0 = Perm[ii + Perm[jj]] % 12; n0 = t0 * t0 * (Grad[gi0 * 3] * x0 + Grad[gi0 * 3 + 1] * y0); }
+                    var t1 = 0.5 - x1 * x1 - y1 * y1;
+                    if (t1 < 0) n1 = 0.0; else { t1 *= t1; var gi1 = Perm[ii + i1 + Perm[jj + j1]] % 12; n1 = t1 * t1 * (Grad[gi1 * 3] * x1 + Grad[gi1 * 3 + 1] * y1); }
+                    var t2 = 0.5 - x2 * x2 - y2 * y2;
+                    if (t2 < 0) n2 = 0.0; else { t2 *= t2; var gi2 = Perm[ii + 1 + Perm[jj + 1]] % 12; n2 = t2 * t2 * (Grad[gi2 * 3] * x2 + Grad[gi2 * 3 + 1] * y2); }
+                    return 70.0 * (n0 + n1 + n2);
+                };
+            };
+        })();
+
+        const app = {
+            config: {
+                speed: 0.15,
+                bankStrength: 0.05,
+                mouseSensitivity: 4.0,
+                pathAmplitude: 60,
+                pathFreq: 0.004,
+                lookAhead: 30,
+                trenchWidth: 14,
+                trenchDepth: -10,
+                surfaceRoughness: 6,
+                detailScale: 2.0,
+                viewDistance: 450, 
+                fogDensity: 0.0, 
+                starCount: 5000, 
+                colorFog: '#050510',
+                colorLight: '#00ffff',
+                colorSurfaceHigh: '#9999aa', // Significantly brighter
+                colorSurfaceLow: '#333344',  // Significantly brighter
+                autoAdvance: false, 
+                autoInterval: 15
+            },
+            
+            defaults: {},
+            scene: null, camera: null, renderer: null,
+            objects: { stars: null, chunks: [], lights: {} },
+            simplex: new SimplexNoise(),
+            clock: new THREE.Clock(),
+            globalZ: 0,
+            mouseX: 0, mouseY: 0,
+            isMenuOpen: false,
+            autoTimer: 0,
+            
+            init: function() {
+                this.defaults = { ...this.config };
+                this.setupThree();
+                this.createUI();
+                this.setupEvents();
+                // Trigger initial random to set scene, true = instant (no fade on load)
+                this.triggerRandomize(true);
+                
+                // Remove loading overlay after a moment
+                setTimeout(() => {
+                    document.getElementById('transition-overlay').classList.remove('active');
+                    document.getElementById('transition-overlay').classList.add('hidden');
+                }, 500);
+
+                this.animate();
+            },
+
+            setupThree: function() {
+                this.scene = new THREE.Scene();
+                this.updateFog();
+
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 4000);
+                
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                this.renderer.setClearColor(this.config.colorFog);
+                document.body.appendChild(this.renderer.domElement);
+
+                this.objects.stars = this.createStars();
+                this.scene.add(this.objects.stars);
+
+                // Initialize 8 Chunks
+                for(let i=0; i<8; i++) {
+                    const chunk = this.createChunk();
+                    chunk.position.z = -120 * i; 
+                    // Pre-generate the geometry/color so it's ready before first render
+                    this.updateMeshGeometry(chunk, this.globalZ + chunk.position.z);
+                    this.updateMeshColors(chunk, this.globalZ + chunk.position.z);
+                    
+                    this.objects.chunks.push(chunk);
+                    this.scene.add(chunk);
+                }
+
+                // Brighter Ambient Light (Pure White)
+                const ambient = new THREE.AmbientLight(0xffffff, 0.7); 
+                this.scene.add(ambient);
+                
+                // Hemisphere Light for natural fill
+                const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
+                this.scene.add(hemiLight);
+                
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                dirLight.position.set(10, 30, 10);
+                dirLight.castShadow = true;
+                dirLight.shadow.mapSize.width = 1024;
+                dirLight.shadow.mapSize.height = 1024;
+                dirLight.shadow.camera.left = -50;
+                dirLight.shadow.camera.right = 50;
+                this.scene.add(dirLight);
+                this.objects.lights.dir = dirLight;
+
+                const shipLight = new THREE.PointLight(this.config.colorLight, 2, 25);
+                this.scene.add(shipLight);
+                this.objects.lights.ship = shipLight;
+            },
+
+            updateFog: function() {
+                if(this.scene.fog && this.scene.fog.isFog) {
+                    this.scene.fog.color.set(this.config.colorFog);
+                    this.scene.fog.near = this.config.viewDistance * 0.3;
+                    this.scene.fog.far = this.config.viewDistance;
+                } else {
+                    this.scene.fog = new THREE.Fog(this.config.colorFog, this.config.viewDistance * 0.3, this.config.viewDistance);
+                }
+                if(this.renderer) this.renderer.setClearColor(this.config.colorFog);
+            },
+
+            // --- SHADER BASED STARS ---
+            createStars: function() {
+                const count = 10000;
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(count * 3);
+                const colors = new Float32Array(count * 3);
+                const phases = new Float32Array(count); // For independent twinkling
+                const sizes = new Float32Array(count);  // Independent sizes
+
+                const colorVariations = [
+                    new THREE.Color(0xffffff), // White
+                    new THREE.Color(0xaaccff), // Blue-ish
+                    new THREE.Color(0xffffee)  // Warm-ish
+                ];
+
+                for (let i = 0; i < count; i++) {
+                    const r = 400 + Math.random() * 1600; 
+                    const theta = 2 * Math.PI * Math.random();
+                    const phi = Math.acos(2 * Math.random() - 1);
+                    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                    positions[i * 3 + 2] = r * Math.cos(phi);
+
+                    const baseCol = colorVariations[Math.floor(Math.random() * colorVariations.length)];
+                    colors[i * 3] = baseCol.r;
+                    colors[i * 3 + 1] = baseCol.g;
+                    colors[i * 3 + 2] = baseCol.b;
+
+                    phases[i] = Math.random() * Math.PI * 2;
+                    sizes[i] = 10.0 + Math.random() * 15.0; // Randomized base sizes
+                }
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geometry.setAttribute('customColor', new THREE.BufferAttribute(colors, 3));
+                geometry.setAttribute('phase', new THREE.BufferAttribute(phases, 1));
+                geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+                
+                // Shader Material for Twinkling & Soft Circles
+                const material = new THREE.ShaderMaterial({
+                    uniforms: {
+                        time: { value: 0 }
+                    },
+                    vertexShader: `
+                        attribute float size;
+                        attribute vec3 customColor;
+                        attribute float phase;
+                        varying vec3 vColor;
+                        varying float vAlpha;
+                        uniform float time;
+                        void main() {
+                            vColor = customColor;
+                            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                            gl_Position = projectionMatrix * mvPosition;
+                            
+                            // Twinkle logic
+                            float twinkle = sin(time * 2.0 + phase); // -1 to 1
+                            float scale = 0.8 + 0.2 * twinkle; 
+                            vAlpha = 0.6 + 0.4 * twinkle; // Brightness pulse
+
+                            // Size attenuation: size * (scaleFactor / -z)
+                            // 800.0 is a typical scale factor for FOV 75
+                            gl_PointSize = size * scale * (800.0 / -mvPosition.z);
+                        }
+                    `,
+                    fragmentShader: `
+                        varying vec3 vColor;
+                        varying float vAlpha;
+                        void main() {
+                            // Soft circular particle
+                            vec2 coord = gl_PointCoord - vec2(0.5);
+                            float dist = length(coord);
+                            if (dist > 0.5) discard;
+                            
+                            // Gaussian-ish falloff for "hot core" look
+                            float strength = 1.0 - (dist * 2.0);
+                            strength = pow(strength, 3.0); // Higher power = sharper point
+
+                            gl_FragColor = vec4(vColor, strength * vAlpha);
+                        }
+                    `,
+                    transparent: true,
+                    depthWrite: false,
+                    blending: THREE.AdditiveBlending,
+                    fog: false // Stars ignore fog
+                });
+
+                const points = new THREE.Points(geometry, material);
+                points.frustumCulled = false; 
+                geometry.setDrawRange(0, this.config.starCount);
+                return points;
+            },
+
+            createChunk: function() {
+                const geo = new THREE.PlaneGeometry(500, 120, 150, 60);
+                geo.rotateX(-Math.PI / 2);
+                geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(geo.attributes.position.count * 3), 3));
+                const mat = new THREE.MeshStandardMaterial({
+                    vertexColors: true, 
+                    roughness: 0.9, 
+                    metalness: 0.1, // Reduced to prevent dark rendering
+                    flatShading: true
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.receiveShadow = true; mesh.castShadow = true;
+                return mesh;
+            },
+
+            getPathOffset: function(z) {
+                let n = this.simplex.noise2D(500, z * this.config.pathFreq); 
+                let sign = Math.sign(n);
+                let curved = Math.pow(Math.abs(n), 2.2); 
+                return sign * curved * this.config.pathAmplitude;
+            },
+
+            getElevation: function(x, z, worldZ) {
+                const pathX = this.getPathOffset(worldZ);
+                const dist = Math.abs(x - pathX);
+                const C = this.config;
+                let y = this.simplex.noise2D(x * 0.04, worldZ * 0.04) * C.surfaceRoughness;
+                y += this.simplex.noise2D(x * 0.1, worldZ * 0.1) * 2;
+                if (dist < C.trenchWidth / 2) {
+                    let detail = this.simplex.noise2D(x * C.detailScale, worldZ * C.detailScale) * 0.5;
+                    if (Math.abs(x - pathX) > (C.trenchWidth/2) - 1) detail -= 1;
+                    return C.trenchDepth + detail;
+                } else if (dist < (C.trenchWidth / 2) + 4) {
+                    let wallH = C.trenchDepth + (dist - C.trenchWidth/2) * 4;
+                    if (wallH > y) return y; 
+                    return wallH;
+                }
+                return Math.max(1, y);
+            },
+
+            updateMeshGeometry: function(mesh, zOffset) {
+                const pos = mesh.geometry.attributes.position.array;
+                const segmentsW = 150;
+                const segmentsH = 60;
+                const width = 500;
+                const length = 120;
+
+                for (let i = 0; i < pos.length; i += 3) {
+                    const vertexIndex = i / 3;
+                    const ix = vertexIndex % (segmentsW + 1);
+                    const iz = Math.floor(vertexIndex / (segmentsW + 1));
+                    const x = (ix / segmentsW - 0.5) * width;
+                    const localZ = (iz / segmentsH - 1.0) * length;
+                    const worldZ = zOffset + localZ;
+
+                    const y = this.getElevation(x, localZ, worldZ);
+                    pos[i] = x; pos[i+1] = y; pos[i+2] = localZ;
+                }
+                mesh.geometry.attributes.position.needsUpdate = true;
+                mesh.geometry.computeVertexNormals();
+            },
+
+            updateMeshColors: function(mesh, zOffset) {
+                const pos = mesh.geometry.attributes.position.array;
+                const cols = mesh.geometry.attributes.color.array;
+                const colObj = new THREE.Color();
+                const C = this.config;
+                const colHigh = new THREE.Color(C.colorSurfaceHigh);
+                const colLow = new THREE.Color(C.colorSurfaceLow);
+                const colLight = new THREE.Color(C.colorLight);
+
+                for (let i = 0; i < pos.length; i += 3) {
+                    const x = pos[i];
+                    const y = pos[i+1];
+                    const localZ = pos[i+2];
+                    const worldZ = zOffset + localZ;
+
+                    const pathX = this.getPathOffset(worldZ);
+                    const dist = Math.abs(x - pathX);
+
+                    const noiseMix = this.simplex.noise2D(x * 0.1, worldZ * 0.1); 
+
+                    if (y < -4) {
+                        const v = 0.05 + Math.random() * 0.05;
+                        colObj.copy(colLow).multiplyScalar(1 + v);
+                        if (Math.random() > 0.995) colObj.copy(colLight);
+                    } else {
+                        let mixFactor = (y / 15) + (noiseMix * 0.2);
+                        mixFactor = Math.max(0, Math.min(1, mixFactor));
+                        colObj.copy(colLow).lerp(colHigh, 0.5 + mixFactor);
+                        if (dist > C.trenchWidth/2 && dist < C.trenchWidth/2 + 2) {
+                            colObj.lerp(colHigh, 0.8).multiplyScalar(1.2);
+                        }
+                    }
+                    cols[i] = colObj.r; cols[i+1] = colObj.g; cols[i+2] = colObj.b;
+                }
+                mesh.geometry.attributes.color.needsUpdate = true;
+            },
+
+            createUI: function() {
+                const container = document.getElementById('controls-container');
+                const specs = [
+                    { 
+                        title: 'Flight Dynamics', 
+                        items: [
+                            { id: 'speed', type: 'range', label: 'Speed', min: 0, max: 0.15, step: 0.01 },
+                            { id: 'pathAmplitude', type: 'range', label: 'Curve Severity', min: 0, max: 100, step: 1, isGeo: true },
+                            { id: 'trenchWidth', type: 'range', label: 'Trench Width', min: 8, max: 30, step: 1, isGeo: true },
+                            { id: 'bankStrength', type: 'range', label: 'Bank Angle', min: 0, max: 0.2, step: 0.01 }
+                        ]
+                    },
+                    {
+                        title: 'Environment',
+                        items: [
+                            { id: 'viewDistance', type: 'range', label: 'Visibility Range', min: 100, max: 800, step: 10, isGeo: false }, 
+                            { id: 'starCount', type: 'range', label: 'Star Density', min: 0, max: 10000, step: 500, isGeo: false },
+                            { id: 'colorFog', type: 'color', label: 'Atmosphere Tint', isColor: true }
+                        ]
+                    },
+                    {
+                        title: 'Surface & Light',
+                        items: [
+                            { id: 'colorLight', type: 'color', label: 'Engine Core', isColor: true },
+                            { id: 'colorSurfaceHigh', type: 'color', label: 'Terrain High', isColor: true },
+                            { id: 'colorSurfaceLow', type: 'color', label: 'Trench Deep', isColor: true }
+                        ]
+                    },
+                    {
+                        title: 'System',
+                        items: [
+                            { id: 'autoAdvance', type: 'checkbox', label: 'Auto-Scramble' },
+                            { id: 'autoInterval', type: 'range', label: 'Interval (s)', min: 3, max: 60, step: 1 }
+                        ]
+                    }
+                ];
+
+                specs.forEach(group => {
+                    const div = document.createElement('div');
+                    div.className = 'control-group';
+                    div.innerHTML = `<div class="group-title">${group.title}</div>`;
+                    
+                    group.items.forEach(item => {
+                        const row = document.createElement('div');
+                        row.className = 'control-item';
+                        
+                        let inputHTML = '';
+                        const dataGeo = item.isGeo ? 'data-geo="true"' : '';
+                        const dataColor = item.isColor ? 'data-color="true"' : '';
+                        
+                        if(item.type === 'range') {
+                            inputHTML = `
+                                <div class="control-header">
+                                    <label>${item.label}</label>
+                                    <span class="value-display" id="val-${item.id}"></span>
+                                </div>
+                                <input type="range" id="ctrl-${item.id}" ${dataGeo} ${dataColor} min="${item.min}" max="${item.max}" step="${item.step}">
+                            `;
+                        } else if (item.type === 'color') {
+                            inputHTML = `
+                                <div class="control-header">
+                                    <label>${item.label}</label>
+                                </div>
+                                <input type="color" id="ctrl-${item.id}" ${dataColor}>
+                            `;
+                        } else if (item.type === 'checkbox') {
+                            inputHTML = `
+                                <div class="checkbox-wrapper">
+                                    <label>${item.label}</label>
+                                    <input type="checkbox" id="ctrl-${item.id}">
+                                </div>
+                            `;
+                        }
+
+                        row.innerHTML = inputHTML;
+                        div.appendChild(row);
+                    });
+                    container.appendChild(div);
+                });
+                
+                this.updateUIFromConfig();
+            },
+
+            setupEvents: function() {
+                const btn = document.getElementById('menu-btn');
+                const panel = document.getElementById('settings-panel');
+                
+                const toggleMenu = (forceState) => {
+                    const isOpen = forceState !== undefined ? forceState : !this.isMenuOpen;
+                    this.isMenuOpen = isOpen;
+                    if(isOpen) {
+                        btn.classList.add('open');
+                        panel.classList.add('open');
+                    } else {
+                        btn.classList.remove('open');
+                        panel.classList.remove('open');
+                    }
+                };
+
+                btn.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(); });
+                document.addEventListener('click', (e) => {
+                    if (this.isMenuOpen && !panel.contains(e.target) && e.target !== btn) {
+                        toggleMenu(false);
+                    } else if (!this.isMenuOpen && !panel.contains(e.target) && e.target !== btn) {
+                        this.triggerRandomize();
+                    }
+                });
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') toggleMenu(false);
+                });
+
+                const inputs = document.querySelectorAll('input');
+                inputs.forEach(input => {
+                    input.addEventListener('input', (e) => {
+                        const key = e.target.id.replace('ctrl-', '');
+                        let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+                        if(e.target.type === 'range') val = parseFloat(val);
+                        
+                        this.config[key] = val;
+                        if(document.getElementById(`val-${key}`)) {
+                            document.getElementById(`val-${key}`).innerText = val;
+                        }
+                        
+                        const isGeo = e.target.getAttribute('data-geo') === 'true';
+                        const isColor = e.target.getAttribute('data-color') === 'true';
+                        
+                        this.applyImmediateSettings(isGeo, isColor);
+                    });
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    this.mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+                    this.mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+                });
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+            },
+
+            updateUIFromConfig: function() {
+                Object.keys(this.config).forEach(key => {
+                    const el = document.getElementById(`ctrl-${key}`);
+                    if (!el) return;
+                    if (el.type === 'checkbox') el.checked = this.config[key];
+                    else el.value = this.config[key];
+                    const valDisplay = document.getElementById(`val-${key}`);
+                    if (valDisplay) valDisplay.innerText = this.config[key];
+                });
+            },
+
+            applyImmediateSettings: function(updateGeo, updateColor) {
+                this.updateFog();
+                this.objects.lights.ship.color.set(this.config.colorLight);
+                
+                // Update Star Count via Buffer Range
+                this.objects.stars.geometry.setDrawRange(0, this.config.starCount);
+
+                // Update Chunks
+                this.objects.chunks.forEach(chunk => {
+                    const worldZ = this.globalZ + chunk.position.z;
+                    if(updateGeo) this.updateMeshGeometry(chunk, worldZ);
+                    if(updateColor || updateGeo) this.updateMeshColors(chunk, worldZ);
+                });
+            },
+
+            triggerRandomize: function(instant = false) {
+                const overlay = document.getElementById('transition-overlay');
+                if(!instant) {
+                    overlay.classList.remove('hidden');
+                    overlay.classList.add('active');
+                }
+                
+                setTimeout(() => {
+                    this.randomizeSettings();
+                    this.updateUIFromConfig();
+                    this.applyImmediateSettings(true, true); // Force full update
+                    if(!instant) {
+                        setTimeout(() => {
+                            overlay.classList.remove('active');
+                            overlay.classList.add('hidden');
+                            this.autoTimer = 0; 
+                        }, 400);
+                    }
+                }, instant ? 0 : 600);
+            },
+
+            randomizeSettings: function() {
+                const randRange = (min, max) => Math.random() * (max - min) + min;
+                const randColor = (brightness = 1.0) => {
+                    const r = Math.floor(Math.random() * 255 * brightness);
+                    const g = Math.floor(Math.random() * 255 * brightness);
+                    const b = Math.floor(Math.random() * 255 * brightness);
+                    return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+                };
+
+                this.config.speed = randRange(0.05, 0.15);
+                this.config.pathAmplitude = randRange(20, 90);
+                this.config.trenchWidth = randRange(10, 25);
+                this.config.viewDistance = randRange(300, 700); 
+                
+                // Darker Fog
+                this.config.colorFog = randColor(0.2); 
+                
+                this.config.colorLight = randColor(1.0);
+                
+                // Brighter terrain colors
+                this.config.colorSurfaceHigh = randColor(0.8);
+                this.config.colorSurfaceLow = randColor(0.4);
+            },
+
+            resetDefaults: function() {
+                this.config = { ...this.defaults };
+                this.updateUIFromConfig();
+                this.triggerRandomize(); 
+            },
+
+            exportWallpaper: function() {
+                const w = 3840, h = 2160;
+                this.renderer.setSize(w, h);
+                this.camera.aspect = w / h;
+                this.camera.updateProjectionMatrix();
+                this.renderer.render(this.scene, this.camera);
+                const link = document.createElement('a');
+                link.download = 'trench_run_4k.png';
+                link.href = this.renderer.domElement.toDataURL('image/png');
+                link.click();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+            },
+
+            animate: function() {
+                requestAnimationFrame(this.animate.bind(this));
+                const dt = this.clock.getDelta();
+                const time = this.clock.getElapsedTime();
+
+                // Update Star Shader Time
+                if(this.objects.stars && this.objects.stars.material.uniforms) {
+                    this.objects.stars.material.uniforms.time.value = time;
+                }
+
+                if(this.config.autoAdvance) {
+                    this.autoTimer += dt;
+                    if(this.autoTimer > this.config.autoInterval) {
+                        this.triggerRandomize();
+                        this.autoTimer = 0;
+                    }
+                }
+
+                this.globalZ -= this.config.speed;
+                const chunks = this.objects.chunks;
+                const L = 120;
+                const numChunks = 8; 
+
+                // Move and recycle logic
+                chunks.forEach(chunk => {
+                    chunk.position.z += this.config.speed;
+                    
+                    if (chunk.position.z > L) {
+                        chunk.position.z -= L * numChunks;
+                        const worldZ = this.globalZ + chunk.position.z;
+                        this.updateMeshGeometry(chunk, worldZ); 
+                        this.updateMeshColors(chunk, worldZ);
+                    }
+                });
+
+                // Camera Logic
+                const lookAhead = this.config.lookAhead;
+                const pathXCurrent = this.getPathOffset(this.globalZ);
+                const pathXFuture = this.getPathOffset(this.globalZ - lookAhead);
+
+                const strafeX = this.mouseX * this.config.mouseSensitivity;
+                const minH = this.config.trenchDepth + 2.5;
+                const strafeY = Math.max(minH, Math.min(-2, -6 + this.mouseY * 4));
+
+                const targetX = pathXCurrent + strafeX;
+                const targetY = strafeY;
+
+                this.camera.position.x += (targetX - this.camera.position.x) * 0.15;
+                this.camera.position.y += (targetY - this.camera.position.y) * 0.15;
+                this.camera.position.z = 0;
+
+                // Safety Clamp
+                const safeZone = (this.config.trenchWidth / 2) - 2.0; 
+                const currentDeviation = this.camera.position.x - pathXCurrent;
+                if (currentDeviation > safeZone) this.camera.position.x = pathXCurrent + safeZone;
+                else if (currentDeviation < -safeZone) this.camera.position.x = pathXCurrent - safeZone;
+                
+                if (this.camera.position.y < minH) this.camera.position.y = minH;
+
+                const lookTarget = new THREE.Vector3(pathXFuture + (strafeX * 0.2), strafeY, -lookAhead);
+                this.camera.lookAt(lookTarget);
+
+                const curveBank = (pathXCurrent - pathXFuture) * this.config.bankStrength;
+                const mouseBank = -this.mouseX * 0.3;
+                this.camera.rotation.z += ( (curveBank + mouseBank) - this.camera.rotation.z ) * 0.1;
+
+                this.objects.lights.ship.position.set(this.camera.position.x, this.camera.position.y, -5);
+
+                this.renderer.render(this.scene, this.camera);
+            }
+        };
+
+        window.onload = function() { app.init(); };
+
+    </script>
+</body>
+</html>
